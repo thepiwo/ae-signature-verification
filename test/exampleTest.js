@@ -1,0 +1,75 @@
+/*
+ * ISC License (ISC)
+ * Copyright (c) 2018 aeternity developers
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ *  REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ *  AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ *  INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ *  LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ *  OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ *  PERFORMANCE OF THIS SOFTWARE.
+ */
+const {Universal, Crypto} = require('@aeternity/aepp-sdk');
+
+const EXAMPLE_CONTRACT_PATH = utils.readFileRelative('./contracts/ExampleContract.aes', 'utf-8');
+
+const config = {
+    host: 'http://localhost:3001/',
+    internalHost: 'http://localhost:3001/internal/',
+    compilerUrl: 'http://localhost:3080'
+};
+
+describe('Example Contract', () => {
+
+    let client, contract;
+
+    before(async () => {
+        client = await Universal({
+            url: config.host,
+            internalUrl: config.internalHost,
+            keypair: wallets[0],
+            networkId: 'ae_devnet',
+            compilerUrl: config.compilerUrl
+        });
+    });
+
+    it('Deploying Example Contract', async () => {
+        contract = await client.getContractInstance(EXAMPLE_CONTRACT_PATH);
+
+        const init = await contract.methods.init();
+        assert.equal(init.result.returnType, 'ok');
+    });
+
+    it('Signature verification', async () => {
+        let url = "https://github.com/aeternity/protocol/blob/master/contracts/sophia.md";
+        let hash = Crypto.hash(url);
+        assert.equal(hash.toString('hex'), (await contract.methods.hash(url)).decodedResult);
+
+        // signPersonalMessage takes a string, but our hash is already Buffer, so we use plain sign
+        let sig = Crypto.sign(hash, Buffer.from(wallets[0].secretKey, 'hex'));
+
+        const res = await contract.methods.test_verify(url, wallets[0].publicKey, sig);
+        assert.equal(res.decodedResult, true);
+    })
+
+
+    it('Signature verification: with prefix', async () => {
+        let url = "https://github.com/aeternity/protocol/blob/master/contracts/sophia.md";
+
+        let hash = Crypto.hash(Crypto.personalMessageToBinary(url));
+        console.log("sophia", (await contract.methods.prefix_message(url)).decodedResult, "\n");
+        console.log("js", Crypto.personalMessageToBinary(url).toString('utf8'));
+        assert.equal(hash.toString('hex'), (await contract.methods.hash_personal_message(url)).decodedResult);
+
+        // signPersonalMessage takes a string, but our hash is already Buffer, so we use plain sign
+        let sig = Crypto.sign(hash.toString('hex'), Buffer.from(wallets[0].secretKey, 'hex'));
+
+        const res = await contract.methods.test_verify_personal_message(url, wallets[0].publicKey, sig);
+        assert.equal(res.decodedResult, true);
+    })
+});
