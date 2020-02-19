@@ -14,13 +14,13 @@
  *  OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  *  PERFORMANCE OF THIS SOFTWARE.
  */
-const {Universal, Crypto} = require('@aeternity/aepp-sdk');
+const {Universal, Crypto, MemoryAccount, Node} = require('@aeternity/aepp-sdk');
 
 const EXAMPLE_CONTRACT_PATH = utils.readFileRelative('./contracts/ExampleContract.aes', 'utf-8');
 
 const config = {
-    host: 'http://localhost:3001/',
-    internalHost: 'http://localhost:3001/internal/',
+    url: 'http://localhost:3001/',
+    internalUrl: 'http://localhost:3001/internal/',
     compilerUrl: 'http://localhost:3080'
 };
 
@@ -30,9 +30,13 @@ describe('Example Contract', () => {
 
     before(async () => {
         client = await Universal({
-            url: config.host,
-            internalUrl: config.internalHost,
-            keypair: wallets[0],
+            nodes: [{
+                name: 'devnetNode',
+                instance: await Node(config)
+            }],
+            accounts: [MemoryAccount({
+                keypair: wallets[0]
+            })],
             networkId: 'ae_devnet',
             compilerUrl: config.compilerUrl
         });
@@ -55,21 +59,18 @@ describe('Example Contract', () => {
 
         const res = await contract.methods.test_verify(url, wallets[0].publicKey, sig);
         assert.equal(res.decodedResult, true);
-    })
+    });
 
 
     it('Signature verification: with prefix', async () => {
         let url = "https://github.com/aeternity/protocol/blob/master/contracts/sophia.md";
 
         let hash = Crypto.hash(Crypto.personalMessageToBinary(url));
-        console.log("sophia", (await contract.methods.prefix_message(url)).decodedResult, "\n");
-        console.log("js", Crypto.personalMessageToBinary(url).toString('utf8'));
-        assert.equal(hash.toString('hex'), (await contract.methods.hash_personal_message(url)).decodedResult);
 
         // signPersonalMessage takes a string, but our hash is already Buffer, so we use plain sign
-        let sig = Crypto.sign(hash.toString('hex'), Buffer.from(wallets[0].secretKey, 'hex'));
+        let sig = Crypto.signPersonalMessage(url, Buffer.from(wallets[0].secretKey, 'hex'));
 
-        const res = await contract.methods.test_verify_personal_message(url, wallets[0].publicKey, sig);
+        const res = await contract.methods.test_verify_personal_message(hash.toString('hex'), wallets[0].publicKey, sig);
         assert.equal(res.decodedResult, true);
-    })
+    });
 });

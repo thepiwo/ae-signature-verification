@@ -7,15 +7,5 @@ contract Example =
     let msg = hash(url)
     Crypto.verify_sig(msg, pubkey, sig)
 
-  // tried to implement Crypto.personalMessageToBinary, similar to https://github.com/LimeChain/aepp-token-migration-backend/blob/master/contract/test-contract.aes#L34
-  entrypoint prefix_message(url : string) =
-    let prefix = "æternity Signed Message:\n"
-    String.concat(Int.to_str(String.length(prefix)), String.concat(prefix, String.concat(Int.to_str(String.length(url)), url)))
-
-  entrypoint hash_personal_message(url : string) =
-    let unhashed_msg = prefix_message(url)
-    hash(unhashed_msg)
-
-  entrypoint test_verify_personal_message(url : string, pubkey : address, sig : signature) =
-    let msg = hash_personal_message(url)
+  entrypoint test_verify_personal_message(msg : hash, pubkey : address, sig : signature) =
     Crypto.verify_sig(msg, pubkey, sig)
