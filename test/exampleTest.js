@@ -73,4 +73,17 @@ describe('Example Contract', () => {
         const res = await contract.methods.test_verify_personal_message(hash.toString('hex'), wallets[0].publicKey, sig);
         assert.equal(res.decodedResult, true);
     });
+
+    it('Signature verification: with prefix', async () => {
+        let url = "https://github.com/aeternity/protocol/blob/master/contracts/sophia.md";
+
+        let personalMessage = Crypto.personalMessageToBinary(url);
+        assert.equal(personalMessage.toString(), (await contract.methods.prefix_message(url)).decodedResult);
+
+        // signPersonalMessage takes a string, but our hash is already Buffer, so we use plain sign
+        let sig = Crypto.signPersonalMessage(url, Buffer.from(wallets[0].secretKey, 'hex'));
+
+        const res = await contract.methods.test_verify_prefix(url, wallets[0].publicKey, sig);
+        assert.equal(res.decodedResult, true);
+    });
 });

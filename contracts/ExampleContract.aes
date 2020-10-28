@@ -9,3 +9,11 @@ contract Example =
 
   entrypoint test_verify_personal_message(msg : hash, pubkey : address, sig : signature) =
     Crypto.verify_sig(msg, pubkey, sig)
+
+  entrypoint prefix_message(msg : string) =
+    let prefix = "aeternity Signed Message:\n"
+    String.concat(Int.to_str(String.length(prefix)), String.concat(prefix, String.concat(Int.to_str(String.length(msg)), msg)))
+
+  entrypoint test_verify_prefix(msg : string, pubkey : address, sig : signature) =
+    let hash = hash(prefix_message(msg))
+    Crypto.verify_sig(hash, pubkey, sig)
