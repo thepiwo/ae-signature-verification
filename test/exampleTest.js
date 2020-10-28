@@ -14,6 +14,8 @@
  *  OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  *  PERFORMANCE OF THIS SOFTWARE.
  */
+import {hash, personalMessageToBinary, sign} from "@aeternity/aepp-sdk/es/utils/crypto";
+
 const {Universal, Crypto, MemoryAccount, Node} = require('@aeternity/aepp-sdk');
 
 const EXAMPLE_CONTRACT_PATH = utils.readFileRelative('./contracts/ExampleContract.aes', 'utf-8');
@@ -82,6 +84,30 @@ describe('Example Contract', () => {
 
         // signPersonalMessage takes a string, but our hash is already Buffer, so we use plain sign
         let sig = Crypto.signPersonalMessage(url, Buffer.from(wallets[0].secretKey, 'hex'));
+
+        const res = await contract.methods.test_verify_prefix(url, wallets[0].publicKey, sig);
+        assert.equal(res.decodedResult, true);
+    });
+
+    it('Signature verification: with custom prefix', async () => {
+        let url = "https://github.com/aeternity/protocol/blob/master/contracts/sophia.md";
+
+        function personalMessageToBinary (message) {
+            const p = Buffer.from('aeternity Signed Message:\n', 'utf8')
+            const msg = Buffer.from(message, 'utf8')
+            if (msg.length >= 0xFD) throw new Error('message too long')
+            return Buffer.concat([Buffer.from(p.length.toString(), 'utf8'), p, Buffer.from(msg.length.toString(), 'utf8'), msg])
+        }
+
+        let personalMessage = personalMessageToBinary(url);
+        assert.equal(personalMessage.toString(), (await contract.methods.prefix_message(url)).decodedResult);
+
+        function signPersonalMessage (message, privateKey) {
+            return Crypto.sign(Crypto.hash(personalMessageToBinary(message)), privateKey)
+        }
+
+        // signPersonalMessage takes a string, but our hash is already Buffer, so we use plain sign
+        let sig = signPersonalMessage(url, Buffer.from(wallets[0].secretKey, 'hex'));
 
         const res = await contract.methods.test_verify_prefix(url, wallets[0].publicKey, sig);
         assert.equal(res.decodedResult, true);
